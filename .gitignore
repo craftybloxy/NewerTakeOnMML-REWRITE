@@ -1,0 +1,7 @@
+workspace.ipynb
+cookies.txt
+venv/
+.ipynb_checkpoints
+.idea
+__pycache__
+.cache
