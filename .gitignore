@@ -1,7 +1,11 @@
-workspace.ipynb
-cookies.txt
-venv/
-.ipynb_checkpoints
-.idea
-__pycache__
+oauth.json
+browser.json
+.env
 .cache
+/venv
+.prettierrc
+library.db
+/cache
+__pycache__
+.vscode
+settings.toml

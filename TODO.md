@@ -1,90 +1,96 @@
-[ ] Add a database (songs: url[spotify,path]), (playlists: songs)
-[ ] Make a plugin template for data (fetch/push) (all; saved: songs, albums, artists, playlists)
-[ ] Make the spotify plugin
-[ ] Make the local plugin
-[ ] Link playlists together
-[ ] Add a config file
-[ ] add a way to link playlists
-[ ] Make the plugin template for downloading
+
+CUSTOM HASHABLE DATATYPE FOR A SONG, song_id being the hash
+Songs will now be sets of SONG objects
+BY DEFAULT ABSOLUTELLY NO AUTOMATIC fixes for when songs aren't a perfect match 
+USERS should be asked if two artist account are matching across services, DO NOT LINK PUBLIC ARCHIVES, EITHER OFFICIAL SOURCES OR PERSONAL ARCHIVES
+if necessary, do link archives but they have to be CLEARLY seperated from the official sources
+
+song_ref object
+    service_id str
+    artist_id str
+    artist_name str
+    song_id str
+    song_title str
+
+song object
+    song_id int
+    song_title str
+    song_refs [song_ref, song_ref, song_ref, ...]
+
+playlist_ref object
+            service_id str
+            playlist_id str
+            playlist_name str
+            db_playlist_id str
+
+playlist object
+            playlist_id int
+            playlist_name str
+            playlist_refs list [playlist_ref, playlist_ref, ...]
+            songs list [song, song, song, ...]
 
 
-> disc_number? ou index indépendant
 
-plugin data
-    artist
-        artistid
-        name
-    artist_alt
-        alt name
-        url
-    
-    album
-        albumid
-        name
-        artistid
-        year
-        genre
-        description
 
-    album_alt
-        url
-        alt name
 
-    album_index
-        albumid
-        musicid
 
-    music
-        musicid
-        name
-        albumid
-        artistid
-        year
-        genre
-        description
-        duration
 
-    music_alt
-        url
-        alt name
 
-    playlist
-        name
-        author
-        date created
-        description
 
-    playlist_index
-        music_id
-        playlist_id
-        date_added
 
-    playlist_alt
-        url
-        alt name
-        
+                original_service_id TEXT
+                sync_across_services INTEGER
 
-plugin functions
-    pull
-        all saved artists
-        all saved albums
-        all saved music
-        all personal playlists
-        all saved playlists
-        one albums
-        one music
-        one playlists
-    push
-        all saved artists
-        all saved albums
-        all saved music
-        all personal playlists
-        all saved playlists
-        one albums
-        one music
-        one playlists
+                
+CURRENT sync?  source_id
 
-STEP 1:
-Make the system work with song data
 
-STEP 2: 
+
+### Name -> SongId
+[ ] FTS in database
+
+## Name -> InServiceId
+[ ] Try to Search using the service APIs
+[ ] Try to use a trusted database to link different InServiceIds
+
+
+#
+# NOTE: Use 404 when data is missing, handle 404 in modules.database oh and don't forget the empty playlists
+#
+
+# Data templates
+
+        {
+            "service_id": "spotify",
+            "artist_id": "404",
+            "artist_name": "John Doe",
+            "song_id": "404",
+            "song_title": "Amazing Journey",
+        }
+
+        {
+            "service_id": "spotify",
+            "playlist_id": "playlist101_spotify_id",
+            "playlist_name": "Morning Vibes",
+            "db_playlist_id": None,  
+            "songs": [
+                {
+                    "service_id": "spotify",
+                    "artist_id": "artist100_spotify_id",
+                    "artist_name": "John Doe",
+                    "song_id": "song100_spotify_id",
+                    "song_title": "Amazing Journey",
+                },
+            ]
+        }
+# Unindentified
+
+
+                {
+                    "service_id": song_data[0],
+                    "artist_id": song_data[1],
+                    "input_artist_name": song_data[2],
+                    "song_id": song_data[3],
+                    "input_song_title": song_data[4],
+                    "db_song_id": song_data[5]
+                }

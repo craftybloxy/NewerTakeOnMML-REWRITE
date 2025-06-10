@@ -1,431 +1,641 @@
 import sqlite3
+from rich.pretty import pprint
 
-class DatabaseEntity:
-    def __init__(self, table_name, primary_key, connection, cursor):
-        """
-        Base class for handling common database operations.
-
-        :param table_name: The name of the table.
-        :param primary_key: The primary key column of the table.
-        :param connection: The SQLite connection object.
-        :param cursor: The SQLite cursor object.
-        """
-        self.table_name = table_name
-        self.primary_key = primary_key
-        self.con = connection
-        self.cur = cursor
-
-
-    def add_or_merge(self, data_dict, unique_columns=None):
-        """
-        Adds a new record to the database or merges it with an existing one.
-        Uses helper methods to resolve names to IDs if needed and only inserts data if the column exists.
-
-        :param data_dict: A dictionary containing the columns and values for the record.
-        :param unique_columns: A list of column names that are used to identify unique records.
-        """
-        # Resolve names to IDs if necessary
-        data_dict = self.resolve_names_to_ids(data_dict)
-
-        # Get the valid columns from the table schema
-        valid_columns = self.get_table_columns()
-        
-        # Filter data_dict to include only valid columns
-        filtered_data = {key: value for key, value in data_dict.items() if key in valid_columns}
-        
-        if not filtered_data:
-            print("No valid columns found to insert data.")
-            return
-        
-
-        if unique_columns is None:
-            # Default unique columns if not provided
-            unique_columns = list(filtered_data.keys())[:2]  # Customize as needed
-
-        # Check if all unique columns are in the filtered_data
-        if not all(col in filtered_data for col in unique_columns):
-            print("Not all unique columns are present in the data.")
-            return
-        
-        unique_values = tuple(filtered_data[col] for col in unique_columns)
-        unique_conditions = ' AND '.join([f"{col} = ?" for col in unique_columns])
-
-        try:
-            # Check if the record already exists based on unique columns
-            self.cur.execute(f"""
-                SELECT {self.primary_key} FROM {self.table_name} WHERE {unique_conditions}
-            """, unique_values)
-            result = self.cur.fetchone()
-
-            if result:
-                # Record exists, update the existing entry
-                record_id = result[0]
-                placeholders = ', '.join([f"{key} = ?" for key in filtered_data.keys()])
-                values = list(filtered_data.values()) + [record_id]
-
-                self.cur.execute(f"""
-                    UPDATE {self.table_name}
-                    SET {placeholders}
-                    WHERE {self.primary_key} = ?
-                """, values)
-                print(f"Record in '{self.table_name}' updated.")
-            else:
-                # Record does not exist, insert a new entry
-                columns = ', '.join(filtered_data.keys())
-                placeholders = ', '.join(['?'] * len(filtered_data))
-                values = list(filtered_data.values())
-
-                self.cur.execute(f"""
-                    INSERT INTO {self.table_name} ({columns})
-                    VALUES ({placeholders})
-                """, values)
-                print(f"Record added to '{self.table_name}'.")
-
-            # Commit the changes to the database
-            self.con.commit()
-
-        except sqlite3.IntegrityError as e:
-            print(f"IntegrityError: {e}")
-        except sqlite3.OperationalError as e:
-            print(f"OperationalError: {e}")
-        except sqlite3.Error as e:
-            print(f"An SQLite error occurred: {e}")
-        except ValueError as e:
-            print(f"ValueError: {e}")
-
-
-    
-    def get_table_columns(self):
-        """
-        Retrieve the column names from the table schema.
-        """
-        self.cur.execute(f"PRAGMA table_info({self.table_name})")
-        columns_info = self.cur.fetchall()
-        columns = [col[1] for col in columns_info]
-        return columns
-    
-    def resolve_names_to_ids(self, data_dict):
-        """
-        Resolves names in data_dict to their corresponding IDs if applicable.
-
-        :param data_dict: A dictionary containing the columns and values for    the record.
-        :return: The updated dictionary with names replaced by IDs.
-        """
-        try:
-            if 'artist' in data_dict:
-                artist_name = data_dict['artist']
-                self.cur.execute("""
-                    SELECT artistid 
-                    FROM artist 
-                    WHERE name = ? 
-                    UNION 
-                    SELECT artistid 
-                    FROM artist_alt 
-                    WHERE artist = ?
-                """, (artist_name, artist_name))
-                artist_result = self.cur.fetchone()
-                if artist_result:
-                    data_dict['artistid'] = artist_result[0]
-                else:
-                    print(f"Artist '{artist_name}' not found in the database.")
-
-            if 'album' in data_dict and 'artistid' in data_dict:
-                album_title = data_dict['album']
-                artist_id = data_dict['artistid']
-                self.cur.execute("""
-                    SELECT albumid 
-                    FROM album 
-                    WHERE title = ? AND artistid = ?
-                """, (album_title, artist_id))
-                album_result = self.cur.fetchone()
-                if album_result:
-                    data_dict['albumid'] = album_result[0]
-                else:
-                    print(f"Album '{album_title}' by artist ID '{artist_id}'    not found in the database.")
-
-            if 'song' in data_dict and 'artistid' in data_dict:
-                song_title = data_dict['song']
-                artist_id = data_dict['artistid']
-                self.cur.execute("""
-                    SELECT songid 
-                    FROM song 
-                    WHERE title = ? AND artistid = ?
-                """, (song_title, artist_id))
-                song_result = self.cur.fetchone()
-                if song_result:
-                    data_dict['songid'] = song_result[0]
-                else:
-                    print(f"Song '{song_title}' by artist ID '{artist_id}' not  found in the database.")
-
-            if 'playlist' in data_dict:
-                playlist_title = data_dict['playlist']
-                self.cur.execute("""
-                    SELECT playlistid 
-                    FROM playlist 
-                    WHERE title = ?
-                """, (playlist_title,))
-                playlist_result = self.cur.fetchone()
-                if playlist_result:
-                    data_dict['playlistid'] = playlist_result[0]
-                else:
-                    print(f"Playlist '{playlist_title}' not found in the    database.")
-
-        except Exception as e:
-            print(f"An error occurred: {e}")
-
-        return data_dict
-
-    
-class Song(DatabaseEntity):
-    def __init__(self, connection, cursor):
-        super().__init__('song', 'songid', connection, cursor)
-
-class Album(DatabaseEntity):
-    def __init__(self, connection, cursor):
-        super().__init__('album', 'albumid', connection, cursor)
-
-class Artist(DatabaseEntity):
-    def __init__(self, connection, cursor):
-        super().__init__('artist', 'artistid', connection, cursor)
-
-class Song_alt(DatabaseEntity):
-    def __init__(self, connection, cursor):
-        super().__init__('song_alt', 'id', connection, cursor)
-
-class Album_alt(DatabaseEntity):
-    def __init__(self, connection, cursor):
-        super().__init__('album_alt', 'id', connection, cursor)
-
-class Artist_alt(DatabaseEntity):
-    def __init__(self, connection, cursor):
-        super().__init__('artist_alt', 'id', connection, cursor)
-
-class Playlist(DatabaseEntity):
-    def __init__(self, connection, cursor):
-        super().__init__('playlist', 'playlistid', connection, cursor)
-
-class Playlist_index(DatabaseEntity):
-    def __init__(self, connection, cursor):
-        super().__init__('playlist_index', 'playlistid', connection, cursor)
-
-class Playlist_alt(DatabaseEntity):
-    def __init__(self, connection, cursor):
-        super().__init__('playlist_alt', 'id', connection, cursor)
 
 class Database:
-    def __init__(self, db_name=":memory:"):
-        """
-        Initializes the Database class.
-
-        :param db_name: The name of the SQLite database file. If ":memory:", creates a database in RAM.
-        """
-        self.db_name = db_name
+    def __init__(self, services, db_name=":memory:"):
         self.con = sqlite3.connect(db_name)
         self.cur = self.con.cursor()
-
-        # Enable foreign key constraints
-        self.cur.execute("PRAGMA foreign_keys = ON")
-
-        self.setup_schema()
-
-        # Initialize entities
-        self.song = Song(self.con, self.cur)
-        self.album = Album(self.con, self.cur)
-        self.artist = Artist(self.con, self.cur)
-        self.playlist = Playlist(self.con, self.cur)
-        self.song_alt = Song_alt(self.con, self.cur)
-        self.album_alt = Album_alt(self.con, self.cur)
-        self.artist_alt = Artist_alt(self.con, self.cur)
-        self.playlist_alt = Playlist_alt(self.con, self.cur)
-        self.playlist_index = Playlist_index(self.con, self.cur)
-
-    def setup_schema(self):
+        self.create_tables()
+        self.init_services(services)
+        self.cur.execute("PRAGMA foreign_keys = ON;")
+    def execute(self, query):
+        self.cur.execute(query)
+    def create_tables(self):
+        self.cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS services (
+                id TEXT PRIMARY KEY
+            )
         """
-        Sets up the database schema by creating necessary tables.
+        )
+
+        # Create tables for artists, albums, songs, playlists, and playlist-songs relationships
+        self.cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS artists (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                source_id TEXT,
+                FOREIGN KEY (source_id) REFERENCES services(id)
+                
+            )
         """
+        )
 
-        # Creating the artist table
-        self.cur.execute("""
-            CREATE TABLE IF NOT EXISTS artist(
-                artistid INTEGER PRIMARY KEY,
-                name TEXT UNIQUE,
-                genre TEXT
-            )
-        """)
+        self.cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS artists_source_info(
+                service_id TEXT NOT NULL,
+                artist_id INTEGER,
+                service_artist_id TEXT NOT NULL,
+                service_artist_name TEXT,
+                UNIQUE (service_id, service_artist_id, service_artist_name),
+                PRIMARY KEY(service_id, artist_id),
+                FOREIGN KEY (artist_id) REFERENCES artists(id),
+                FOREIGN KEY (service_id) REFERENCES services(id)
+                )
+        """
+        )
 
-        # Creating the album table
-        self.cur.execute("""
-            CREATE TABLE IF NOT EXISTS album(
-                albumid INTEGER PRIMARY KEY,
-                artistid INTEGER,
-                title TEXT,
-                year TEXT,
-                genre TEXT,
-                FOREIGN KEY(artistid) REFERENCES artist(artistid)
-            )
-        """)
-
-        # Creating the song table
-        self.cur.execute("""
-            CREATE TABLE IF NOT EXISTS song(
-                songid INTEGER PRIMARY KEY,
-                albumid INTEGER,
-                artistid INTEGER,
-                title TEXT,
-                genre TEXT,
-                year TEXT,
-                FOREIGN KEY(artistid) REFERENCES artist(artistid),
-                FOREIGN KEY(albumid) REFERENCES album(albumid)
-            )
-        """)
-
-        # Creating the playlist table
-        self.cur.execute("""
-            CREATE TABLE IF NOT EXISTS playlist(
-                playlistid INTEGER PRIMARY KEY,
-                title TEXT
-            )
-        """)
-
-
-        # Creating the playlist_index table
-        self.cur.execute("""
-            CREATE TABLE IF NOT EXISTS playlist_index(
-                songid INTEGER NOT NULL,
-                playlistid INTEGER NOT NULL,
-                PRIMARY KEY (songid, playlistid)
-                FOREIGN KEY(songid) REFERENCES song(songid),
-                FOREIGN KEY(playlistid) REFERENCES playlist(playlistid)
-            )
-        """)
-
-        # Creating the artist_alt table
-        self.cur.execute("""
-            CREATE TABLE IF NOT EXISTS artist_alt(
+        self.cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS songs (
                 id INTEGER PRIMARY KEY,
-                in_service_id INTEGER,
-                artistid INTEGER,
-                url TEXT,
-                artist TEXT,
-                plugin TEXT,
-                FOREIGN KEY(artistid) REFERENCES artist(artistid)
+                title TEXT NOT NULL,
+                artist_id INTEGER,
+                source_id TEXT,
+                FOREIGN KEY (source_id) REFERENCES services(id)
+                UNIQUE (artist_id, title),
+                FOREIGN KEY (artist_id) REFERENCES artists(id)
             )
-        """)
+        """
+        )
 
-        # Creating the album_alt table
-        self.cur.execute("""
-            CREATE TABLE IF NOT EXISTS album_alt(
+        self.cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS songs_source_info(
+                service_id TEXT NOT NULL,
+                song_id INTEGER,
+                service_song_id TEXT NOT NULL,
+                service_song_title TEXT,
+                PRIMARY KEY(service_id, song_id),
+                FOREIGN KEY (song_id) REFERENCES songs (id),
+                FOREIGN KEY (service_id) REFERENCES services(id)
+            )
+        """
+        )
+        self.cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS playlists (
                 id INTEGER PRIMARY KEY,
-                in_service_id INTEGER,
-                albumid INTEGER,
-                url TEXT,
-                album TEXT,
-                plugin TEXT,
-                FOREIGN KEY(albumid) REFERENCES album(albumid)
+                name TEXT NOT NULL,
+                source_id TEXT,
+                FOREIGN KEY (source_id) REFERENCES services(id)
             )
-        """)
-
-        # Creating the song_alt table
-        self.cur.execute("""
-            CREATE TABLE IF NOT EXISTS song_alt(
-                id INTEGER PRIMARY KEY,
-                in_service_id INTEGER,
-                songid INTEGER,
-                url TEXT,
-                song TEXT,
-                plugin TEXT,
-                FOREIGN KEY(songid) REFERENCES song(songid)
+        """
+        )
+        self.cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS playlists_source_info(
+                service_id TEXT NOT NULL,
+                playlist_id INTEGER,
+                service_playlist_id TEXT NOT NULL,
+                service_playlist_name TEXT,
+                PRIMARY KEY(service_id, playlist_id),
+                FOREIGN KEY (playlist_id) REFERENCES playlists (id),
+                FOREIGN KEY (service_id) REFERENCES services(id)
             )
-        """)
-
-        # Creating the playlist_alt table
-        self.cur.execute("""
-            CREATE TABLE IF NOT EXISTS playlist_alt(
-                id INTEGER PRIMARY KEY,
-                in_service_id INTEGER,
-                playlistid INTEGER,
-                title TEXT,
-                artist TEXT,
-                url TEXT,
-                playlist TEXT,
-                plugin TEXT,
-                FOREIGN KEY(playlistid) REFERENCES playlist(playlistid)
+        """
+        )
+        self.cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS playlist_songs (
+                playlist_id INTEGER,
+                song_id INTEGER,
+                PRIMARY KEY (playlist_id, song_id),
+                FOREIGN KEY (playlist_id) REFERENCES playlists (id),
+                FOREIGN KEY (song_id) REFERENCES songs (id)
             )
-        """)
-
+        """
+        )
         self.con.commit()
 
-    def print_all_tables(self):
+
+    
+    def init_services(self, services):
         """
-        Prints all data from all tables in the database.
-        Dynamically retrieves the column names and data for each table.
+        services (list): a list of service_id
         """
-        try:
-            # Retrieve all table names from the SQLite master table
-            self.cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = self.cur.fetchall()
+        # from list to list of tupples
+        services_tuples = ((service_id,) for service_id in services)
+        self.cur.executemany(
+            """
+            INSERT OR IGNORE INTO services(id) VALUES (?)
+            """,
+            services_tuples,
+        )
 
-            # Iterate over each table and print its data
-            for table_name in tables:
-                table_name = table_name[0]  # Extract the table name from the tuple
-                print(f"\nTable: {table_name}")
+    def insert_artist(self, data):
+        # Tries first to find the artist_id directly using service_artist_id in artists_source_info
+        self.cur.execute(
+            """
+            SELECT artist_id 
+            FROM artists_source_info 
+            WHERE service_id = (?) 
+            AND service_artist_id = (?)
+            """,
+            (data["service_id"], data["artist_id"]),
+        )
+        artist_id_from_db = self.cur.fetchone()
+        if artist_id_from_db:
+            artist_id = artist_id_from_db[0]
+            return artist_id
 
-                # Select all data from the table
-                self.cur.execute(f"SELECT * FROM {table_name}")
+        # Tries to see if its an homonym using the service's id system
+        self.cur.execute(
+            """
+            SELECT artist_id 
+            FROM artists_source_info 
+            WHERE service_id = (?) 
+            AND service_artist_name = (?)
+            AND NOT service_artist_id = (?)
+            """,
+            (data["service_id"], data["artist_name"], data["artist_id"]),
+        )
+        homonym_from_db = self.cur.fetchone()
+        if homonym_from_db:
+            self.cur.execute(
+                """
+                INSERT INTO artists(name, source_id) VALUES(?, ?)
+                """,
+                ((data["artist_name"],data["service_id"])),
+            )
 
-                # Fetch the column names dynamically using cursor description
-                column_names = [description[0] for description in self.cur.description]
+            artist_id = self.cur.lastrowid
+        else:
+            # Check if the artist is already in the db using its name
+            self.cur.execute(
+                "SELECT id FROM artists WHERE name = ?", (data["artist_name"],)
+            )
 
-                # Fetch all rows from the executed query
-                rows = self.cur.fetchall()
+            artist = self.cur.fetchone()
 
-                # Print column headers
-                print(" | ".join(column_names))
-                print("-" * (len(column_names) * 10))
+            if artist:
+                artist_id = artist[0]  # Artist found, use the existing ID
+            else:
+                # Artist does not exist, insert a new one
+                self.cur.execute(
+                    "INSERT INTO artists(name, source_id) VALUES(?, ?)", (data["artist_name"],data["service_id"])
+                )
+                artist_id = self.cur.lastrowid
 
-                # Print each row in the table
-                for row in rows:
-                    print(" | ".join(map(str, row)))
+        # Fills out artists_source_info
+        self.cur.execute(
+            """
+            INSERT OR IGNORE INTO artists_source_info(service_id, artist_id, service_artist_id, service_artist_name)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                data["service_id"],
+                artist_id,
+                data["artist_id"],
+                data["artist_name"],
+            ),
+        )
+        return artist_id
 
-        except sqlite3.Error as e:
-            print(f"An SQLite error occurred: {e}")
+    def insert_artists(self, artists):
+        for artist in artists:
+            self.insert_artist(artist)
 
-    def close(self):
+    def insert_song(self, data):
+        #
+        # ÉTAPE 1: Identifier l'artiste avec un artist_id
+        #
+        artist_id = self.insert_artist(data)
+        #
+        # ÉTAPE 2: Identifier la musique
+        #
+        # TODO Identifier la musique avec l'auteur et la musique
+        # TODO ajouter un moyen manuel de le faire
+        db_song_id = data.get("db_song_id")
+        if db_song_id:
+            song_id = db_song_id
+            # Fills out songs_source_info
+            self.cur.execute(
+                """
+                INSERT OR IGNORE INTO songs_source_info(service_id, song_id, service_song_id, service_song_title)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    data["service_id"],
+                    song_id,
+                    data["song_id"],
+                    data["song_title"],
+                ),
+            )
+        else:
+            # Tries to find the song_id using service_song_id in songs_source_info
+            self.cur.execute(
+                """
+                SELECT song_id 
+                FROM songs_source_info 
+                WHERE service_id = (?) 
+                AND service_song_id = (?)
+                """,
+                (data["service_id"], data["song_id"]),
+            )
+            song_id_from_db = self.cur.fetchone()
+            if song_id_from_db:
+                song_id = song_id_from_db[0]
+            else:
+                # Uses the unique name constraints to find or create an song_id
+                self.cur.execute(
+                    """
+                    INSERT OR IGNORE INTO songs(title, artist_id, source_id) VALUES(?, ?, ?)
+                    """,
+                    ((data["song_title"], artist_id, data["service_id"])),
+                )
+                # fetch the songid
+                self.cur.execute(
+                    """
+                    SELECT id FROM songs WHERE title=? and artist_id=?
+                    """,
+                    ((data["song_title"], artist_id)),
+                )
+                song_id = self.cur.fetchone()[0]
+
+                # Fills out songs_source_info
+                self.cur.execute(
+                    """
+                    INSERT OR IGNORE INTO songs_source_info(service_id, song_id, service_song_id, service_song_title)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        data["service_id"],
+                        song_id,
+                        data["song_id"],
+                        data["song_title"],
+                    ),
+                )
+        return song_id
+
+    def insert_songs(self, songs):
+        if songs:
+            for data in songs:
+                if data:
+                    self.insert_song(data)
+        self.con.commit()
+
+    def insert_playlist(self, data):
+        #
+        # 1 - Get a playlist_id
+        #
+        db_playlist_id = data.get("db_playlist_id")
+        if db_playlist_id:
+            playlist_id = db_playlist_id
+            # Fills out playlists_source_info
+            self.cur.execute(
+                """
+                INSERT OR IGNORE INTO playlists_source_info(service_id, playlist_id, service_playlist_id, service_playlist_name)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    data["service_id"],
+                    playlist_id,
+                    data["playlist_id"],
+                    data["playlist_name"],
+                ),
+            )
+        else:
+            self.cur.execute(
+                """
+                SELECT playlist_id 
+                FROM playlists_source_info 
+                WHERE service_id = (?) 
+                AND service_playlist_id = (?)
+                """,
+                (data["service_id"], data["playlist_id"]),
+            )
+            playlist_id_from_db = self.cur.fetchone()
+            if playlist_id_from_db:
+                playlist_id = playlist_id_from_db[0]
+            else:
+                # Uses the unique name constraints to find or create an playlist_id
+                self.cur.execute(
+                    """
+                    INSERT OR IGNORE INTO playlists(name) VALUES(?)
+                    """,
+                    ((data["playlist_name"],)),
+                )
+                # fetch the playlist_id
+                self.cur.execute(
+                    """
+                    SELECT id FROM playlists WHERE name=?
+                    """,
+                    ((data["playlist_name"],)),
+                )
+                playlist_id = self.cur.fetchone()[0]
+
+                # Fills out playlists_source_info
+                self.cur.execute(
+                    """
+                    INSERT OR IGNORE INTO playlists_source_info(service_id, playlist_id, service_playlist_id, service_playlist_name)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        data["service_id"],
+                        playlist_id,
+                        data["playlist_id"],
+                        data["playlist_name"],
+                    ),
+                )
+
+        # 2 - Add the songs in playlist_songs by getting their id using insert_song
+        for song in data["songs"]:
+            # Use insert_song to insert the song if not already in the database
+            # This will insert the song and return its ID
+            song_id = self.insert_song(song)
+
+            # Insert the relationship between the playlist and song into playlist_songs
+            self.cur.execute(
+                "INSERT OR IGNORE INTO playlist_songs(playlist_id, song_id) VALUES (?, ?)",
+                (playlist_id, song_id),
+            )
+
+
+    def insert_playlists(self, playlists):
+        if playlists:
+            for playlist in playlists:
+                self.insert_playlist(playlist)
+        self.con.commit()
+
+    def fetch_unidentified_songs(self, service_id):
+        results = []
+        self.cur.execute(
+            """
+            SELECT services.id, artists_source_info.service_artist_id , artists_source_info.service_artist_name, artists.name, songs_source_info.service_song_id, songs_source_info.service_song_title, songs.title, songs.id
+            FROM songs, services
+            JOIN artists ON songs.artist_id = artists.id
+
+            LEFT JOIN artists_source_info
+            ON artists.id = artists_source_info.artist_id 
+            AND artists_source_info.service_id = services.id
+
+            LEFT JOIN songs_source_info
+            ON songs.id = songs_source_info.song_id 
+            AND songs_source_info.service_id = services.id
+
+            WHERE services.id = (?) AND songs_source_info.service_song_title IS NULL
+            """,
+            (service_id,),
+        )
+        raw_unidentified_songs = self.cur.fetchall()
+        for song_data in raw_unidentified_songs:
+            results.append(
+                {
+                    "service_id": song_data[0],
+                    "artist_id": song_data[1],
+                    "artist_name": song_data[2],
+                    "input_artist_name": song_data[3],
+                    "song_id": song_data[4],
+                    "song_title": song_data[5],
+                    "input_song_title": song_data[6],
+                    "db_song_id": song_data[7]
+                }
+            )
+        return results
+
+    def fetch_unidentified_playlists(self, service_id):
+        results = []
+        self.cur.execute(
+            """
+            SELECT services.id, playlists.name,playlists_source_info.service_playlist_id, playlists.id
+            FROM playlists, services
+            LEFT JOIN playlists_source_info ON playlists.id = playlists_source_info.playlist_id AND playlists_source_info.service_id = services.id 
+            WHERE services.id = (?) AND playlists_source_info.service_playlist_id IS NULL
+            """,
+            (service_id,),
+        )
+        raw_unidentified_playlists = self.cur.fetchall()
+        for playlist_data in raw_unidentified_playlists:
+            results.append(
+                {"service_id": playlist_data[0], "playlist_name": playlist_data[1],"playlist_id":playlist_data[2], "db_playlist_id":playlist_data[3]}
+            )
+        return results
+
+    def fetch_playlists(self, service_id):
+        pass
+
+    def print_table(self, table):
+
+        print("=" * 80)
+        print(f"{'Table: ' + table:^80}")
+        print("=" * 80)
+
+        # Fetch column names
+        self.cur.execute(f"PRAGMA table_info({table});")
+        column_info = self.cur.fetchall()
+        column_names = [column[1] for column in column_info]
+
+        # Print column names
+        print("\t".join(f"{col:<20}" for col in column_names))
+        print("-" * 80)
+
+        # Fetch and print the first 100 rows from the table
+        self.cur.execute(f"SELECT * FROM {table};")
+        rows = self.cur.fetchall()
+
+        if rows:
+            # Print each row of data
+            for row in rows:
+                print("\t".join(f"{str(cell):<20}" for cell in row))
+            print("-" * 4 + f"{len(rows)} entries" + "-" * 80)
+        else:
+            print(f"{'No data in this table':^80}")
+
+        # Add some space between tables
+        print("\n")
+
+    def print_all_table(self):
+        # Fetch all table names from sqlite_master
+        self.cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = self.cur.fetchall()
+        print(tables)
+        # Print a header
+        print("=" * 80)
+        print(f"{'TABLES IN THE DATABASE':^80}")
+        print("=" * 80)
+
+        for table in tables:
+            self.print_table(table[0])
+
+    def find_duplicates(self, table, wanted_column, id_column):
         """
-        Closes the database connection.
+        Broken from now.. finds songs from spotify and youtube to be duplicated
         """
-        try:
-            self.con.close()
-        except sqlite3.Error as e:
-            print(f"An SQLite error occurred while closing the connection: {e}")
-
-    def __del__(self):
+        # Construct the query with dynamic table and column names
+        query = f"""
+        SELECT {wanted_column}, COUNT(*) AS cnt, GROUP_CONCAT({id_column}) AS nos
+        FROM {table}
+        GROUP BY {wanted_column}
+        HAVING COUNT(*) > 1
         """
-        Destructor method to ensure the database connection is closed.
-        """
-        self.close()
 
-if __name__ == '__main__':
-    # Create an instance of the Database class
-    app = Database()
+        # Execute the query
+        self.cur.execute(query)
 
-    # Adding or merging artist data first (to ensure there are no foreign key issues)
-    app.artist.add_or_merge({"name": "Mother Mother", "genre": "Indie Rock"})
-    app.artist.add_or_merge({"name": "Car Seat Headrest", "genre": "Rock"})
+        # Fetch and return all results
+        return self.cur.fetchall()
 
-    # Adding or merging album data
-    app.album.add_or_merge({"title": "O My Heart", "artist": "Mother Mother", "year": "2008", "genre": "Indie Rock"})
-    app.album.add_or_merge({"title": "Twin Fantasy", "artist": "Car Seat Headrest", "year": "2018", "genre": "Rock"})
 
-    # Adding or merging song data
-    app.song.add_or_merge({"title": "Hayloft", "artist": "Mother Mother", "album": "O My Heart", "genre": "Indie Rock", "year": "2008"})
-    app.song.add_or_merge({"title": "Sober to Death", "artist": "Car Seat Headrest", "album": "Twin Fantasy", "genre": "Rock", "year": "2018"})
-    app.artist_alt.add_or_merge({"in_service_id": 999999,"url": "https://spotify.com/artist/1","artist": "Mother Mother", "plugin": "Spotify"
-    })
+if __name__ == "__main__":
+    Spotify_songs = [
+        {
+            "service_id": "spotify",
+            "artist_id": "1muzcpVFKmKSrT7rVNAwBB",
+            "artist_name": "late night drive home",
+            "song_id": "4RuSob7vIafKuRwFQ3y2QA",
+            "song_title": "talk to me (before the night ends)",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "35EN35AllxAEzEdDMl7YFT",
+            "artist_name": "Loni",
+            "song_id": "4RuSob7vIafKuRwFQ3y2QA",
+            "song_title": "talk to me (before the night ends)",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "4X76fYx1a6EmEvCqDudesG",
+            "artist_name": "Netrum",
+            "song_id": "3SuxtjdFxY3RIaWyPgtkfk",
+            "song_title": "Phoenix",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "4jbh1BeqqFVqqH7GACcWdH",
+            "artist_name": "Halvorsen",
+            "song_id": "3SuxtjdFxY3RIaWyPgtkfk",
+            "song_title": "Phoenix",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "5iMYu8Sj8dZEDsWJxSFwPP",
+            "artist_name": "Jhariah",
+            "song_id": "3ekN6ytJmlh5y93ChIqOtA",
+            "song_title": "RISK, RISK, RISK!",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "4MCBfE4596Uoi2O4DtmEMz",
+            "artist_name": "Juice WRLD",
+            "song_id": "1a7WZZZH7LzyvorhpOJFTe",
+            "song_title": "Wasted (feat. Lil Uzi Vert)",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "4O15NlyKLIASxsJ0PrXPfz",
+            "artist_name": "Lil Uzi Vert",
+            "song_id": "1a7WZZZH7LzyvorhpOJFTe",
+            "song_title": "Wasted (feat. Lil Uzi Vert)",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "5nWYvcpaqKtp08cYxjOfFr",
+            "artist_name": "Gibran Alcocer",
+            "song_id": "0yfMign5fsLtw5I4pK73ge",
+            "song_title": "Solas",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "0NIPkIjTV8mB795yEIiPYL",
+            "artist_name": "Wallows",
+            "song_id": "57RA3JGafJm5zRtKJiKPIm",
+            "song_title": "Are You Bored Yet? (feat. Clairo)",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "3l0CmX0FuQjFxr8SK7Vqag",
+            "artist_name": "Clairo",
+            "song_id": "57RA3JGafJm5zRtKJiKPIm",
+            "song_title": "Are You Bored Yet? (feat. Clairo)",
+        },
+    ]
+    songs = [
+        {
+            "service_id": "spotify",
+            "artist_id": "artist100_spotify_id",
+            "artist_name": "John Doe",
+            "song_id": "song100_spotify_id",
+            "song_title": "Amazing Journey",
+        },
+        {
+            "service_id": "youtube",
+            "artist_id": "artist100_youtube_id",
+            "artist_name": "John Doe",
+            "song_id": "song100_youtube_id",
+            "song_title": "Amazing Journey",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "artist200_spotify_id",
+            "artist_name": "Jane Smith",
+            "song_id": "song200_spotify_id",
+            "song_title": "Sunset Dreams",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "artist101_spotify_id",
+            "artist_name": "John Doe FAN",
+            "song_id": "song101_spotify_id",
+            "song_title": "Amazing Journey Remix",
+        },
+        {
+            "service_id": "spotify",
+            "artist_id": "artist201_spotify_id",
+            "artist_name": "Jane Smith FAN",
+            "song_id": "song201_spotify_id",
+            "song_title": "Sunset Dreams COVER",
+        },
+    ]
 
-    app.playlist.add_or_merge({"title":"<3"})
-    app.playlist_index.add_or_merge({"song":"Sober to Death","artist":"Car Seat Headrest", "playlist":"<3"})
+    playlists = [
+        {
+            "service_id": "spotify",
+            "playlist_id": "playlist101_spotify_id",
+            "playlist_name": "Morning Vibes",
+            "songs": [
+                {
+                    "service_id": "spotify",
+                    "artist_id": "artist100_spotify_id",
+                    "artist_name": "John Doe",
+                    "song_id": "song100_spotify_id",
+                    "song_title": "Amazing Journey",
+                },
+                {
+                    "service_id": "youtube",
+                    "artist_id": "artist100_youtube_id",
+                    "artist_name": "John Doe",
+                    "song_id": "song100_youtube_id",
+                    "song_title": "Amazing Journey",
+                },
+                {
+                    "service_id": "spotify",
+                    "artist_id": "artist200_spotify_id",
+                    "artist_name": "Jane Smith",
+                    "song_id": "song200_spotify_id",
+                    "song_title": "Sunset Dreams",
+                },
+            ],
+        }
+    ]
+    data_quack = {
+    "service_id": "youtube",
+    "artist_id": "quack",
+    "artist_name": "quack",
+    "song_id": "quack",
+    "song_title": "quack",
+    }
+    db = Database(["spotify", "youtube"], "library.db")
+    
+    db.insert_songs(songs)
+    db.insert_playlists(playlists)
 
-    app.print_all_tables()
-    # Closing the database connection
-    app.close()
+    # [('artists',), ('artists_source_info',), ('songs',), ('songs_source_info',), ('playlists',), ('playlists_source_info',), ('playlist_songs',)]
+    # db.print_table("artists_source_info")
+    db.print_all_table()
+
+    pprint(db.fetch_unidentified_songs("youtube"))
+    pprint(db.fetch_unidentified_playlists("youtube"))
