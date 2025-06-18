@@ -1,30 +1,35 @@
 import toml
 import os
+from modules.plugins import plugins, service_ids
 
-main_config_default = {
+
+main_setting_default = {
     "save_all_playlists": True,
-    "service_priority": [],
+    "service_priority": ["db", "user"] + service_ids ,
 }
 
-def load_and_merge_plugin_settings(plugins, path="settings.toml"):
-    # Load existing config or initialize a new one
+def load_settings(plugins, path="settings.toml"):
+    # Load existing setting or initialize a new one
     if os.path.exists(path):
         with open(path, "r") as f:
-            config = toml.load(f)
+            settings = toml.load(f)
     else:
-        config = {}
+        settings = {}
 
-    config.setdefault("main", main_config_default)
-    config.setdefault("plugins", {})
+    settings.setdefault("main", main_setting_default)
+    settings.setdefault("plugins", {})
 
-    # Inject missing plugin config defaults
+    # Add plugin's defaults settings
     for plugin in plugins:
-        name = plugin.__name__
-        default = getattr(plugin, "default_config", {})
-        config["plugins"].setdefault(name, default)
+        name = plugin.SERVICE_ID
+        default = getattr(plugin, "default_settings", {})
+        settings["plugins"].setdefault(name, default)
 
-    # Save back
+    # Save file
     with open(path, "w") as f:
-        toml.dump(config, f)
+        toml.dump(settings, f)
 
-    return config
+    return settings
+
+# Initialize setting
+settings = load_settings(plugins,  path="settings.toml")

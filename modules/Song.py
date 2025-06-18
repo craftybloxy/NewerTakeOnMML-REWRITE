@@ -3,23 +3,15 @@ class Song(dict):
     type de donnée utiliser pour une musique
     """
 
-    def __init__(self, data: dict):
+    def __init__(self, song_id, song_refs):
         """
         Adds the kwargs to the dict-like type
         """
-        self["song_id"] = data.get("song_id", None)
-        self["song_title"] = data.get("song_title", None)
-        self["song_refs"] = data.get("song_refs", {})
+        self.song_id = song_id
+        self.song_refs = song_refs
 
     def refs(self):
-        return self["song_refs"]
-
-    def raw(self):
-        return {
-            "song_id": self["song_id"],
-            "song_title": self["song_title"],
-            "song_refs": self["song_refs"]
-        }
+        return self.song_refs
 
     def __eq__(self, other):
         """
@@ -36,15 +28,16 @@ class Song(dict):
             return False
 
         # Check if songs have same id
-        if self["song_id"] and other["song_id"]:
-            return self["song_id"] == other["song_id"]
+        if self.song_id and other.song_id:
+            if self.song_id == other.song_id:
+                return True
 
         # Check if songs share any matching refs
-        if self["song_refs"] and other["song_refs"]:
+        if self.song_refs and other.song_refs:
             # Check if any service_id exists in both songs with matching data
-            for service_id, ref in self["song_refs"].items():
-                if service_id in other["song_refs"]:
-                    if ref == other["song_refs"][service_id]:
+            for service_id, ref in self.song_refs.items():
+                if service_id in other.song_refs:
+                    if ref == other.song_refs[service_id]:
                         return True
         return False
 
@@ -59,7 +52,7 @@ class Song(dict):
         Args:
             other: Another Song object to merge with
 
-        Returns:
+        Returns: 
             Song: A new Song instance with merged data
 
         Raises:
@@ -70,12 +63,9 @@ class Song(dict):
             raise TypeError("Can only add Song objects together")
 
         if self == other:
-            merged_data = {
-                "song_id": self["song_id"] or other["song_id"],
-                "song_title": self["song_title"] or other["song_title"],
-                "song_refs": {**self["song_refs"], **other["song_refs"]}
-            }
-            return Song(merged_data)
+            song_id = self.song_id or other.song_id 
+            song_refs = {**self.song_refs, **other.song_refs}
+            return Song(song_id, song_refs)
         else:
             raise ValueError(
                 "Can only merge songs that are equal (same ID or shared refs)"
@@ -83,12 +73,12 @@ class Song(dict):
 
     def copy(self):
         """
-        Creates a deep copy of the Song object.
+        Creates a shallow copy of the Song object.
 
         Returns:
             Song: A new Song instance with copied attributes
         """
-        return Song(self.raw())
+        return Song(self.song_id, self.song_refs)
 
     def __repr__(self):
-        return f'Song( {self["song_id"]}, {self["song_title"]}, {self.refs()})'
+        return f'Song( {self.song_id}, {self.refs()})'
