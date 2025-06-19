@@ -1,11 +1,16 @@
 
 CUSTOM HASHABLE DATATYPE FOR A SONG, song_id being the hash
-Songs will now be sets of SONG objects
+A SONG will now be dictionaries of dict refs
+
 BY DEFAULT ABSOLUTELLY NO AUTOMATIC fixes for when songs aren't a perfect match 
+
 USERS should be asked if two artist account are matching across services, DO NOT LINK PUBLIC ARCHIVES, EITHER OFFICIAL SOURCES OR PERSONAL ARCHIVES
 if necessary, do link archives but they have to be CLEARLY seperated from the official sources
 
-song_ref object
+
+service_id{db:local_database, input:user_input}
+
+song_ref dict   # service_id -> db for storing local db_id
     service_id str
     artist_id str
     artist_name str
@@ -13,36 +18,21 @@ song_ref object
     song_title str
 
 song object
-    song_id int
-    song_title str
-    song_refs [song_ref, song_ref, song_ref, ...]
+    service_id str
+    song_refs list [song_ref, song_ref, song_ref, ...]
 
-playlist_ref object
-            service_id str
-            playlist_id str
-            playlist_name str
-            db_playlist_id str
+playlist_ref dict   # service_id -> db for storing local db_id
+    service_id str
+    playlist_id str
+    playlist_name str
 
 playlist object
-            playlist_id int
-            playlist_name str
-            playlist_refs list [playlist_ref, playlist_ref, ...]
-            songs list [song, song, song, ...]
+    service_id str
+    playlist_refs list [playlist_ref, playlist_ref, ...]
+    songs list [song, song, song, ...]
 
-
-
-
-
-
-
-
-
-
-                original_service_id TEXT
-                sync_across_services INTEGER
 
                 
-CURRENT sync?  source_id
 
 
 

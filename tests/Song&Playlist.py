@@ -67,7 +67,7 @@ class TestSong:
         
         assert song1 == song2
     
-    def test_song_inequality_no_matching_refs_or_id(self):
+    def test_song_non_equality_no_matching_refs_or_id(self):
         """Test that songs with no matching refs or ID are not equal"""
         song1 = Song(song_id=1, song_refs={"spotify": {"id": "a"}})
         song2 = Song(song_id=2, song_refs={"youtube": {"id": "b"}})

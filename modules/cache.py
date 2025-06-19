@@ -2,8 +2,9 @@ import json
 import os
 import inspect
 from functools import wraps
+from modules.settings import settings
 
-ENABLED = True
+ENABLED = settings["dev"]["api_cache"]
 
 # Ensure the cache folder exists
 CACHE_FOLDER = "cache"

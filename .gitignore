@@ -9,3 +9,5 @@ library.db
 __pycache__
 .vscode
 settings.toml
+.pytest_cache
+.mypy_cache

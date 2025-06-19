@@ -1,17 +1,10 @@
 from modules.cache import cache
 from rich.pretty import pprint
 from ytmusicapi import YTMusic, OAuthCredentials
+from plugins.youtube.settings import SERVICE_ID, REQUEST_SIZE_LIMIT
 
-SERVICE_ID = "youtube"
-
-default_settings = {
-    "enabled": True,
-    "auth_token": "",
-}
-REQUEST_SIZE_LIMIT = 10**5
 
 class Plugin:
-    
     def __init__(self, ):
         self.yt = YTMusic("browser.json")
     
@@ -56,12 +49,3 @@ class Plugin:
     def identify_songs(self, unidentified_songs):
         pass
 
-if __name__ == "__main__":
-    youtube_service = YouTubeService()
-    youtube_service.ping()
-    
-    song_data = youtube_service.pull_songs()
-    print(song_data[0], len(song_data))
-    playlist_data = youtube_service.pull_playlists()
-    print(playlist_data[0]["songs"][0], len(playlist_data))
-    print([playlist["playlist_name"] for playlist in playlist_data])

@@ -5,13 +5,7 @@ from modules.cache import cache
 from rich.pretty import pprint
 from Levenshtein import distance
 import re
-
-SERVICE_ID = "spotify"
-
-default_settings = {
-    "enabled": True,
-    "auth_token": "",
-}
+from plugins.spotify.settings import SERVICE_ID
 
 class Plugin:
     def __init__(self):
@@ -131,8 +125,6 @@ class Plugin:
 
         return result
 
-    def songs_from_list(self, title_list):
-        return self.identify_songs([{"input_song_title": title} for title in title_list])
 
     def push_playlist(self, playlist):
         pass
