@@ -1,6 +1,10 @@
+"""
+Put all of the plugin's constants here
+"""
+
 SERVICE_ID = "spotify"
 
-default_settings = {
+DEFAULT_SETTINGS = {
     "enabled": True,
     "auth_token": "",
 }

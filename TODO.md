@@ -7,29 +7,37 @@ BY DEFAULT ABSOLUTELLY NO AUTOMATIC fixes for when songs aren't a perfect match
 USERS should be asked if two artist account are matching across services, DO NOT LINK PUBLIC ARCHIVES, EITHER OFFICIAL SOURCES OR PERSONAL ARCHIVES
 if necessary, do link archives but they have to be CLEARLY seperated from the official sources
 
+THE DATABASE AND USER INPUT WILL NOW BE TREATED AS JUST ANOTHER PLUGIN
 
-service_id{db:local_database, input:user_input}
+service_id_meaning{db:local_database, input:user_input}
+user_input might become user_interface or user_cli or just cli
 
-song_ref dict   # service_id -> db for storing local db_id
-    service_id str
+date_added to playlist should be the current time if the service does not remember
+
+when combining, the service_id is changed to the oldest date_added in ref
+
+song_ref dict
     artist_id str
     artist_name str
     song_id str
     song_title str
+    date_added str
+    song_metadata dict {album:value, rating:value, tag:value, ...}
 
 song object
     service_id str
-    song_refs list [song_ref, song_ref, song_ref, ...]
+    song_refs dict {service_id:song_ref, service_id:song_ref, service_id:song_ref, ...}
 
-playlist_ref dict   # service_id -> db for storing local db_id
+playlist_ref dict
     service_id str
     playlist_id str
     playlist_name str
+    playlist_metadata dict {description:value, author:value, picture:value, ...}
 
 playlist object
     service_id str
-    playlist_refs list [playlist_ref, playlist_ref, ...]
-    songs list [song, song, song, ...]
+    playlist_refs dict {service_id:playlist_ref, service_id:playlist_ref, service_id:playlist_ref, ...}
+    songs list [song, song, song, ...]  #This list is ORDERED
 
 
                 
@@ -44,36 +52,38 @@ playlist object
 [ ] Try to use a trusted database to link different InServiceIds
 
 
-#
 # NOTE: Use 404 when data is missing, handle 404 in modules.database oh and don't forget the empty playlists
-#
+# Actually Don't, that is a terrible idea
 
 # Data templates
 
-        {
-            "service_id": "spotify",
-            "artist_id": "404",
-            "artist_name": "John Doe",
-            "song_id": "404",
-            "song_title": "Amazing Journey",
-        }
+Song(
+    service_id="--",
+    song_refs={
+        "--": {
+            "artist_id": "aid--__",
+            "artist_name": "ana__",
+            "song_id": "sid__",
+            "song_title": "sti__",
+            "date_added": "2024-03-18",
+            "song_metadata": {},
+        },
+    },
+)
 
-        {
-            "service_id": "spotify",
-            "playlist_id": "playlist101_spotify_id",
-            "playlist_name": "Morning Vibes",
-            "db_playlist_id": None,  
-            "songs": [
-                {
-                    "service_id": "spotify",
-                    "artist_id": "artist100_spotify_id",
-                    "artist_name": "John Doe",
-                    "song_id": "song100_spotify_id",
-                    "song_title": "Amazing Journey",
-                },
-            ]
-        }
-# Unindentified
+Playlist(
+    service_id="--",
+    playlist_refs={
+        "--": {
+            "playlist_id": "pid--__",
+            "playlist_name": "pna__",
+            "playlist_metadata": {},
+        },
+    },
+   songs=[Song(), Song(), Song()],  
+)
+
+# outdated
 
 
                 {

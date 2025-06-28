@@ -5,14 +5,14 @@ from functools import wraps
 from modules.settings import settings
 
 ENABLED = settings["dev"]["api_cache"]
+CACHE_FOLDER = settings["dev"]["cache_folder"]
 
 # Ensure the cache folder exists
-CACHE_FOLDER = "cache"
 os.makedirs(CACHE_FOLDER, exist_ok=True)
 
 
 def cache(func):
-    # Get module or filename which are usually the same
+    # Get module or filename which should be the same
     module_name = (
         func.__module__
         if func.__module__ != "__main__"

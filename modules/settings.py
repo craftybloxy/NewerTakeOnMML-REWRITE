@@ -1,18 +1,20 @@
 import toml
 import os
-from modules.plugins_settings import plugins_settings, service_ids_settings
+from modules.plugins_init_settings import plugins_constants, init_service_ids
+list_of_all_services = ["db", "input"] + init_service_ids
+list_of_all_pushable_service = list(set(list_of_all_services) - {"input"})
 
 
 main_setting_default = {
     "save_all_playlists": True,
-    "service_priority": ["db", "input"] + service_ids_settings ,
+    "service_priority": list_of_all_services,
     "plugins_whitelist": [],
-    "plugins_blacklist": []
+    "plugins_blacklist": [],
+    "pull_from": list_of_all_services,
+    "push_to": list_of_all_pushable_service
 }
 
-dev_setting_default = {
-    "api_cache":False
-}
+dev_setting_default = {"api_cache": False, "cache_folder": "cache"}
 
 
 def load_settings(plugins_settings, path="settings.toml"):
@@ -39,14 +41,14 @@ def load_settings(plugins_settings, path="settings.toml"):
     # Add plugin's defaults settings
     for plugin in plugins_settings:
         name = plugin.SERVICE_ID
-        default = getattr(plugin, "default_settings", {})
+        default = getattr(plugin, "DEFAULT_SETTINGS", {})
         settings["plugins"].setdefault(name, default)
 
     # Save file
     with open(path, "w") as f:
         toml.dump(settings, f)
-
     return settings
 
+
 # Initialize setting
-settings = load_settings(plugins_settings,  path="settings.toml")
+settings = load_settings(plugins_constants, path="settings.toml")
