@@ -1,10 +1,11 @@
-from datetime import date
+from modules.SongRef import SongRef
+
 class Song:
     """
     Datatype used to store one music and all of its refferences across services
     """
 
-    def __init__(self, service_id, song_refs):
+    def __init__(self, service_id, song_refs=None):
         """
         Adds the data to the song object
 
@@ -13,9 +14,6 @@ class Song:
             song_refs (dict): dict of dictionaries {service_id:ref_dict, service_id:ref_dict ... }
         """
         self.song_refs = song_refs
-        for key in song_refs.keys():
-            if not "date_added" in song_refs[key].keys():
-                song_refs[i]["date_added"] = date.today()
         self.service_id = self.get_oldest_service_id()
 
     def get_oldest_service_id(self):
@@ -25,20 +23,21 @@ class Song:
         Returns:
             str: service_id of the ref with the oldest date_added
         """
-        ref_list = list(self.song_refs.items())
 
-        if not ref_list:
+        if not self.song_refs:
             self.service_id = None
             return
-
-        oldest_i = 0
-        for i in range(1, len(ref_list)):
-            if ref_list[i][1]["date_added"] < ref_list[oldest_i][1]["date_added"]:
-                oldest_i = i
-        return ref_list[oldest_i][0]
+        items = [
+            (service_id, ref.date_added) for service_id, ref in self.song_refs.items()
+        ]
+        oldest_service = items[0][0]
+        for service, date_added in items[0:]:
+            if date_added < self.song_refs[oldest_service].date_added:
+                oldest_service = service
+        return oldest_service
 
     def get_oldest_date(self):
-        return self.song_refs[self.get_oldest_service_id()]["date_added"]
+        return self.song_refs[self.get_oldest_service_id()].date_added
 
     def __eq__(self, other):
         """
@@ -69,16 +68,16 @@ class Song:
                 # check if only essencial fields are the same
                 if service_id in other.song_refs:
                     bare_self_ref = (
-                        self.song_refs[service_id].get("artist_id"),
-                        self.song_refs[service_id].get("artist_name"),
-                        self.song_refs[service_id].get("song_id"),
-                        self.song_refs[service_id].get("song_title"),
+                        self.song_refs[service_id].artist_id,
+                        self.song_refs[service_id].artist_name,
+                        self.song_refs[service_id].song_id,
+                        self.song_refs[service_id].song_title,
                     )
                     bare_other_ref = (
-                        other.song_refs[service_id].get("artist_id"),
-                        other.song_refs[service_id].get("artist_name"),
-                        other.song_refs[service_id].get("song_id"),
-                        other.song_refs[service_id].get("song_title"),
+                        other.song_refs[service_id].artist_id,
+                        other.song_refs[service_id].artist_name,
+                        other.song_refs[service_id].song_id,
+                        other.song_refs[service_id].song_title,
                     )
 
                     if bare_self_ref == bare_other_ref:
@@ -106,12 +105,25 @@ class Song:
 
         if self == other:
             if self.get_oldest_date() < other.get_oldest_date():
-                service_id = self.service_id
-            else:
-                service_id = other.service_id
+                if self.service_id is not None:
+                    service_id = self.service_id
+                else:
+                    service_id = other.service_id
 
-            song_refs = {**self.song_refs, **other.song_refs}
+            else:
+                if other.service_id is not None:
+                    service_id = other.service_id
+                else:
+                    service_id = self.service_id
+
+            song_refs = {}
+            # merge metadata
+            for key_service_id in self.song_refs.keys() | other.song_refs.keys():
+                self_ref = self.song_refs.get(key_service_id, SongRef())
+                other_ref = other.song_refs.get(key_service_id, SongRef())
+                song_refs[key_service_id] = self_ref + other_ref
             return Song(self.service_id, song_refs)
+        
         else:
             raise ValueError(
                 "Can only merge songs that are equal (same ID or shared refs)"
@@ -124,7 +136,7 @@ class Song:
         Returns:
             Song: A new Song instance with copied attributes
         """
-        return Song(self.song_refs["db"]["song_id"], self.song_refs)
+        return Song(self.service_id, self.song_refs.copy())
 
     def __repr__(self):
         return f"Song({self.service_id}, {self.song_refs.keys()})"

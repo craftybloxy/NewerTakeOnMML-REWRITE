@@ -16,7 +16,13 @@ date_added to playlist should be the current time if the service does not rememb
 
 when combining, the service_id is changed to the oldest date_added in ref
 
-song_ref dict
+# TODO
+Fix metadata not merging
+ERROR tests/Song_test.py - AttributeError: 'dict' object has no attribute 'service_id'
+
+**test_add_metadata_from**
+
+Song_ref object
     artist_id str
     artist_name str
     song_id str
@@ -28,7 +34,7 @@ song object
     service_id str
     song_refs dict {service_id:song_ref, service_id:song_ref, service_id:song_ref, ...}
 
-playlist_ref dict
+playlist_ref object
     service_id str
     playlist_id str
     playlist_name str

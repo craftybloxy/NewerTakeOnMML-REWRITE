@@ -43,7 +43,6 @@ class Playlist:
         for i, existing_song in enumerate(self._songs):
             if song == existing_song:
                 matching_indices.append(i)
-
         if not matching_indices:
             # Case 1: Song isn't in the set, add it
             self._songs.append(song)
@@ -53,22 +52,63 @@ class Playlist:
             self._songs[index] = self._songs[index] + song
         else:
             # Case 3: Song matches multiple existing songs, merge all of them
-            # Start with the new song
-            merged_song = song
+            # Pop the smallest index and update that song directly
+            smallest_index = matching_indices.pop(0)
 
-            # Merge with all matching songs (in reverse order to maintain indices)
-            for index in sorted(matching_indices, reverse=True):
-                merged_song = merged_song + self._songs[index]
-                # Remove the merged song from the list
+            # Merge the new song into the existing song at smallest index
+            self._songs[smallest_index] += song
+
+            # Merge all other matching songs into the song at smallest index (in reverse order)
+            for index in reversed(matching_indices):
+                self._songs[smallest_index] += self._songs[index]
                 del self._songs[index]
-
-            # Add the final merged song
-            self._songs.append(merged_song)
 
     def update(self, songs):
         """Add multiple songs to the set."""
         for song in songs:
             self.add(song)
+
+    def intersection(self, other):
+        """
+        Return a new Playlist containing songs that exist in both playlists.
+
+        Args:
+            other (Playlist): Another playlist to intersect with
+
+        Returns:
+            Playlist: A new playlist containing common songs
+
+        Raises:
+            TypeError: If other is not a Playlist object
+        """
+        if not isinstance(other, Playlist):
+            raise TypeError("Can only intersect with another Playlist object")
+
+        # Create a new playlist for the result
+        result = Playlist(service_id=self.service_id, songs=None, playlist_refs={**self.playlist_refs, **other.playlist_refs})
+
+        # Find songs that exist in both playlists
+        for song_a in self._songs:
+            for song_b in other._songs:
+                if song_a == song_b:
+                    result.update([song_a, song_b])
+
+        return result
+
+    def __and__(self, other):
+        """
+        Implement the & operator for intersection.
+
+        Args:
+            other (Playlist): Another playlist to intersect with
+
+        Returns:
+            Playlist: A new playlist containing common songs
+        """
+        return self.intersection(other)
+
+    def add_metadata_from(self, other):
+        self.update(self & other)
 
     def __contains__(self, song):
         """Check if a song is in the set."""
@@ -82,18 +122,29 @@ class Playlist:
         """Return the number of songs in the set."""
         return len(self._songs)
 
-    def __str__(self):
-        """String representation of the set."""
-        return f"{[song for song in self._songs]}"
-
     def __repr__(self):
         """Detailed representation of the set."""
-        return f"SongSet({self._songs})"
+        return f"Playlist({self._songs})"
 
     def __add__(self, other):
-        if not other.isinstance(Playlist):
+        if not isinstace(other, Playlist):
             raise TypeError("Can only add playlist objects together")
-        self.add(other)
+        result = self.copy()
+        result.update(other)
+        return result
+    def __getitem__(self, key):
+        """Make playlist subscriptable - supports indexing and slicing."""
+        return self._songs[key]
+
+    def __setitem__(self, key, value):
+        """Allow item assignment via indexing."""
+        if not isinstance(value, Song):
+            raise TypeError("Can only assign Song objects")
+        self._songs[key] = value
+
+    def __delitem__(self, key):
+        """Allow item deletion via indexing."""
+        del self._songs[key]
 
     def __eq__(self, other):
         """
@@ -150,7 +201,8 @@ class Playlist:
         self._songs.clear()
 
     def copy(self):
-        """Create a shallow copy of the SongSet."""
-        new_set = Playlist()
-        new_set._songs = [song.copy() for song in self._songs]
-        return new_set
+        return Playlist(
+            service_id=self.service_id,
+            songs=self._songs.copy(),
+            playlist_refs=self.playlist_refs.copy(),
+        )
