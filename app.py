@@ -56,7 +56,6 @@ class Plugin_wrapper:
 
             if newly_identified_songs:
                 result.extend(newly_identified_songs)
-        #pprint(result)
         print("saving to db..")
 
         self.db.insert_songs(result)

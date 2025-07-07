@@ -6,8 +6,8 @@ quick and dirty Song template
 Song(
     service_id="--",
     song_refs={
-        "--": Song (
-            artist_idRed= "aid--__",
+        "--": SongRef (
+            artist_id= "aid--__",
             artist_name= "na__",
             song_id= "sid__",
             song_title= "ti__",

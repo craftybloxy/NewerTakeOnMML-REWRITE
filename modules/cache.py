@@ -4,8 +4,8 @@ import inspect
 from functools import wraps
 from modules.settings import settings
 
-ENABLED = settings["dev"]["api_cache"]
-CACHE_FOLDER = settings["dev"]["cache_folder"]
+ENABLED = settings["debug"]["api_cache"]
+CACHE_FOLDER = settings["debug"]["cache_folder"]
 
 # Ensure the cache folder exists
 os.makedirs(CACHE_FOLDER, exist_ok=True)

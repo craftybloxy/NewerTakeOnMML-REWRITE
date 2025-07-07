@@ -1,4 +1,4 @@
-from modules.plugins_init_settings import plugins_paths, import_paths
+from modules.plugins_init import plugins_paths, import_paths
 from modules.settings import settings
 
 #only activates plugin that are whitelisted and not blacklisted

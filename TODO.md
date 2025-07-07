@@ -66,27 +66,27 @@ playlist object
 Song(
     service_id="--",
     song_refs={
-        "--": {
-            "artist_id": "aid--__",
-            "artist_name": "ana__",
-            "song_id": "sid__",
-            "song_title": "sti__",
-            "date_added": "2024-03-18",
-            "song_metadata": {},
-        },
+        "--": SongRef (
+            artist_id= "aid--__",
+            artist_name= "na__",
+            song_id= "sid__",
+            song_title= "ti__",
+            date_added= "2024-03-18",
+            song_metadata ={},
+        ),
     },
 )
 
 Playlist(
     service_id="--",
     playlist_refs={
-        "--": {
-            "playlist_id": "pid--__",
-            "playlist_name": "pna__",
-            "playlist_metadata": {},
-        },
+        "--": PlaylistRef(
+            playlist_id= "pid--__",
+            playlist_name= "pna__",
+            playlist_metadata= {},
+        ),
     },
-   songs=[Song(), Song(), Song()],  
+   songs=[Song(), Song(), Song()],
 )
 
 # outdated

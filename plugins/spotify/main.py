@@ -3,7 +3,6 @@ from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
 from modules.cache import cache
 from rich.pretty import pprint
-from Levenshtein import distance
 import re
 from plugins.spotify.settings import SERVICE_ID
 
@@ -23,17 +22,22 @@ class Plugin:
         if not track:
             return None
 
-        artists = track.get("artists")
+        artists = track.get("artists", [{}])
 
-        if not artists:
-            artists = ({"name": None, "id": None},)
-        return {
-            "service_id": SERVICE_ID,
-            "artist_id": artists[0].get("id"),
-            "artist_name": artists[0].get("name"),
-            "song_id": track.get("id"),
-            "song_title": track.get("name"),
-        }
+        return Song(
+    service_id=SERVICE_ID,
+    song_refs={
+        SERVICE_ID: SongRef (
+            artist_id= artists[0].get("id"),
+            artist_name= artists[0].get("name"),
+            song_id= track.get("id"),
+            song_title= rack.get("name"),
+            date_added= "2024-03-18",
+            song_metadata ={},
+        ),
+    },
+)
+    
 
     @cache
     def pull_songs(self):
