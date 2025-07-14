@@ -12,8 +12,9 @@ class Plugin_wrapper:
             plugin.ping()
 
     def pull_songs(self):
+        
+
         print("pull_songs")
-        all_songs = []
         for plugin in plugins:
             all_songs.extend(plugin.pull_songs())
 

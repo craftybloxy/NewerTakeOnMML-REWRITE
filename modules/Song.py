@@ -1,5 +1,6 @@
 from modules.SongRef import SongRef
 
+
 class Song:
     """
     Datatype used to store one music and all of its refferences across services
@@ -14,9 +15,9 @@ class Song:
             song_refs (dict): dict of dictionaries {service_id:ref_dict, service_id:ref_dict ... }
         """
         self.song_refs = song_refs
-        self.service_id = self.get_oldest_service_id()
+        self.service_id = self._get_oldest_service_id()
 
-    def get_oldest_service_id(self):
+    def _get_oldest_service_id(self):
         """
         Set the main service_id to the oldest "date_added" ref
 
@@ -36,13 +37,12 @@ class Song:
                 oldest_service = service
         return oldest_service
 
-    def get_oldest_date(self):
-        return self.song_refs[self.get_oldest_service_id()].date_added
+    def _get_oldest_date(self):
+        return self.song_refs[self._get_oldest_service_id()].date_added
 
     def __eq__(self, other):
         """
-        Define equality based on id in db or matching refs.
-        Songs are equal if they have the same id or share any matching ref data
+        Define song equality based on if they have the same id or share any matching ref data
 
         Args:
             other: Another object to compare with
@@ -52,14 +52,6 @@ class Song:
         """
         if not isinstance(other, Song):
             return False
-
-        # Check if songs have same db id
-        self_db_ref = self.song_refs.get("db")
-        other_db_ref = other.song_refs.get("db")
-
-        if self_db_ref and other_db_ref:
-            if self.song_refs["db"]["song_id"] == other.song_refs["db"]["song_id"]:
-                return True
 
         # Check if songs share any matching refs
         if self.song_refs and other.song_refs:
@@ -84,7 +76,7 @@ class Song:
                         return True
         return False
 
-    def __add__(self, other):
+    def merge(self, other):
         """
         Merge two songs if they are equal (at least one shared refs).
         The merged song will have all refs from both songs combined
@@ -92,9 +84,6 @@ class Song:
 
         Args:
             other: Another Song object to merge with
-
-        Returns:
-            Song: A new Song instance with merged data
 
         Raises:
             TypeError: If other is not a Song object
@@ -104,26 +93,15 @@ class Song:
             raise TypeError("Can only add Song objects together")
 
         if self == other:
-            if self.get_oldest_date() < other.get_oldest_date():
-                if self.service_id is not None:
-                    service_id = self.service_id
-                else:
-                    service_id = other.service_id
-
-            else:
+            if other._get_oldest_date() < self._get_oldest_date():
                 if other.service_id is not None:
-                    service_id = other.service_id
-                else:
-                    service_id = self.service_id
+                    self.service_id = other.service_id
 
-            song_refs = {}
-            # merge metadata
-            for key_service_id in self.song_refs.keys() | other.song_refs.keys():
-                self_ref = self.song_refs.get(key_service_id, SongRef())
-                other_ref = other.song_refs.get(key_service_id, SongRef())
-                song_refs[key_service_id] = self_ref + other_ref
-            return Song(self.service_id, song_refs)
-        
+        for key_service_id in other.song_refs.keys():
+            self_ref = self.song_refs.get(key_service_id, SongRef())
+            other_ref = other.song_refs.get(key_service_id, SongRef())
+            self.song_refs[key_service_id] = self_ref + other_ref
+
         else:
             raise ValueError(
                 "Can only merge songs that are equal (same ID or shared refs)"

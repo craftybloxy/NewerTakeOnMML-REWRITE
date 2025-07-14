@@ -53,6 +53,6 @@ class SongRef:
             "date_added": self.date_added,
             "song_metadata": self.song_metadata,
         }
-
+    
     def __repr__(self):
         return str(self.dictionary())

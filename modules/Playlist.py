@@ -68,7 +68,7 @@ class Playlist:
         for song in songs:
             self.add(song)
 
-    def intersection(self, other):
+    def _intersection(self, other):
         """
         Return a new Playlist containing songs that exist in both playlists.
 
@@ -85,7 +85,11 @@ class Playlist:
             raise TypeError("Can only intersect with another Playlist object")
 
         # Create a new playlist for the result
-        result = Playlist(service_id=self.service_id, songs=None, playlist_refs={**self.playlist_refs, **other.playlist_refs})
+        result = Playlist(
+            service_id=self.service_id,
+            songs=None,
+            playlist_refs={**self.playlist_refs, **other.playlist_refs},
+        )
 
         # Find songs that exist in both playlists
         for song_a in self._songs:
@@ -97,7 +101,7 @@ class Playlist:
 
     def __and__(self, other):
         """
-        Implement the & operator for intersection.
+        Implement the & operator for _intersection.
 
         Args:
             other (Playlist): Another playlist to intersect with
@@ -105,7 +109,7 @@ class Playlist:
         Returns:
             Playlist: A new playlist containing common songs
         """
-        return self.intersection(other)
+        return self._intersection(other)
 
     def add_metadata_from(self, other):
         self.update(self & other)
@@ -129,9 +133,9 @@ class Playlist:
     def __add__(self, other):
         if not isinstace(other, Playlist):
             raise TypeError("Can only add playlist objects together")
-        result = self.copy()
-        result.update(other)
-        return result
+        self.update(other)
+        return self
+
     def __getitem__(self, key):
         """Make playlist subscriptable - supports indexing and slicing."""
         return self._songs[key]
@@ -171,11 +175,8 @@ class Playlist:
             ):
                 return True
 
-        # Check if songs share any matching refs
         if self.playlist_refs and other.playlist_refs:
-            # Check if any service_id exists in both songs with matching data
             for service_id, ref in self.playlist_refs.items():
-                # check if only essencial fields are the same
                 if service_id in other.playlist_refs:
                     bare_self_ref = self.playlist_refs[service_id].get("playlist_id")
                     bare_other_ref = other.playlist_refs[service_id].get("playlist_id")
@@ -202,7 +203,7 @@ class Playlist:
 
     def copy(self):
         return Playlist(
-            service_id=self.service_id,
+            service_id=self.service_id.copy(),
             songs=self._songs.copy(),
             playlist_refs=self.playlist_refs.copy(),
         )
