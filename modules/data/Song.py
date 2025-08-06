@@ -6,7 +6,7 @@ class Song:
     Datatype used to store one music and all of its refferences across services
     """
 
-    def __init__(self, service_id, song_refs=None):
+    def __init__(self, service_id=None, song_refs=None):
         """
         Adds the data to the song object
 
@@ -14,8 +14,10 @@ class Song:
             service_id (str): id of the original service
             song_refs (dict): dict of dictionaries {service_id:ref_dict, service_id:ref_dict ... }
         """
+        if service_id is None:
+            service_id = self._get_oldest_service_id()
         self.song_refs = song_refs
-        self.service_id = self._get_oldest_service_id()
+        self.service_id = service_id
 
     def _get_oldest_service_id(self):
         """
@@ -61,15 +63,11 @@ class Song:
                 if service_id in other.song_refs:
                     bare_self_ref = (
                         self.song_refs[service_id].artist_id,
-                        self.song_refs[service_id].artist_name,
                         self.song_refs[service_id].song_id,
-                        self.song_refs[service_id].song_title,
                     )
                     bare_other_ref = (
                         other.song_refs[service_id].artist_id,
-                        other.song_refs[service_id].artist_name,
                         other.song_refs[service_id].song_id,
-                        other.song_refs[service_id].song_title,
                     )
 
                     if bare_self_ref == bare_other_ref:
@@ -90,22 +88,17 @@ class Song:
             ValueError: If songs are not equal (can't be merged)
         """
         if not isinstance(other, Song):
+            print(self, other)
             raise TypeError("Can only add Song objects together")
-
-        if self == other:
-            if other._get_oldest_date() < self._get_oldest_date():
-                if other.service_id is not None:
-                    self.service_id = other.service_id
-
+        
+        if other._get_oldest_date() < self._get_oldest_date():
+            if other.service_id is not None:
+                self.service_id = other.service_id
+        
         for key_service_id in other.song_refs.keys():
             self_ref = self.song_refs.get(key_service_id, SongRef())
             other_ref = other.song_refs.get(key_service_id, SongRef())
-            self.song_refs[key_service_id] = self_ref + other_ref
-
-        else:
-            raise ValueError(
-                "Can only merge songs that are equal (same ID or shared refs)"
-            )
+            self.song_refs[key_service_id] = self_ref.merge(other_ref)
 
     def copy(self):
         """

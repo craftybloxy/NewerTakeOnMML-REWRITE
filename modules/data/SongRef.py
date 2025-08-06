@@ -19,7 +19,7 @@ class SongRef:
         self.date_added = date_added
         self.song_metadata = song_metadata
 
-    def add(self, other):
+    def merge(self, other):
         if not isinstance(other, SongRef):
             raise TypeError("Can only add SongRef objects together")
 
@@ -40,9 +40,6 @@ class SongRef:
             date_added=date,
             song_metadata=metadata,
         )
-
-    def __add__(self, other):
-        return self.add(other)
 
     def dictionary(self):
         return {

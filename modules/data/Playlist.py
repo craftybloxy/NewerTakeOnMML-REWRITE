@@ -1,11 +1,11 @@
-from modules.Song import Song
-
+from modules.data.PlaylistRef import PlaylistRef
 
 class Playlist:
     """
     A collection of unique songs using __eq__ for uniqueness instead of hashing.
     Handles merging of songs that become connected through shared references.
     """
+
 
     def __init__(self, service_id=None, songs=None, playlist_refs=None):
         """
@@ -18,9 +18,9 @@ class Playlist:
         """
         self.service_id = service_id
         self.playlist_refs = playlist_refs
-        self._songs = []
+        self.songs = []
         if songs:
-            self.update(songs)
+            self.add_list(songs)
 
     def add(self, song):
         """
@@ -40,30 +40,30 @@ class Playlist:
 
         # Find all songs that match the new song
         matching_indices = []
-        for i, existing_song in enumerate(self._songs):
+        for i, existing_song in enumerate(self.songs):
             if song == existing_song:
                 matching_indices.append(i)
         if not matching_indices:
             # Case 1: Song isn't in the set, add it
-            self._songs.append(song)
+            self.songs.append(song)
         elif len(matching_indices) == 1:
             # Case 2: Song matches one existing song, merge them
             index = matching_indices[0]
-            self._songs[index] = self._songs[index] + song
+            self.songs[index].merge(song)
         else:
             # Case 3: Song matches multiple existing songs, merge all of them
             # Pop the smallest index and update that song directly
             smallest_index = matching_indices.pop(0)
 
             # Merge the new song into the existing song at smallest index
-            self._songs[smallest_index] += song
+            self.songs[smallest_index].merge(song)
 
             # Merge all other matching songs into the song at smallest index (in reverse order)
             for index in reversed(matching_indices):
-                self._songs[smallest_index] += self._songs[index]
-                del self._songs[index]
+                self.songs[smallest_index].merge(self.songs[index])
+                del self.songs[index]
 
-    def update(self, songs):
+    def add_list(self, songs):
         """Add multiple songs to the set."""
         for song in songs:
             self.add(song)
@@ -92,10 +92,10 @@ class Playlist:
         )
 
         # Find songs that exist in both playlists
-        for song_a in self._songs:
-            for song_b in other._songs:
+        for song_a in self.songs:
+            for song_b in other.songs:
                 if song_a == song_b:
-                    result.update([song_a, song_b])
+                    result.add_list([song_a, song_b])
 
         return result
 
@@ -112,43 +112,43 @@ class Playlist:
         return self._intersection(other)
 
     def add_metadata_from(self, other):
-        self.update(self & other)
+        self.add_list(self & other)
 
     def __contains__(self, song):
         """Check if a song is in the set."""
-        return song in self._songs
+        return song in self.songs
 
     def __iter__(self):
         """Iterate over songs in the set."""
-        return iter(self._songs)
+        return iter(self.songs)
 
     def __len__(self):
         """Return the number of songs in the set."""
-        return len(self._songs)
+        return len(self.songs)
 
     def __repr__(self):
         """Detailed representation of the set."""
-        return f"Playlist({self._songs})"
+        return f"Playlist({self.songs})"
 
-    def __add__(self, other):
-        if not isinstace(other, Playlist):
+    def merge(self, other):
+        if not isinstance(other, Playlist):
             raise TypeError("Can only add playlist objects together")
-        self.update(other)
+        self.add_list(other.songs)
         return self
 
     def __getitem__(self, key):
         """Make playlist subscriptable - supports indexing and slicing."""
-        return self._songs[key]
+        return self.songs[key]
 
     def __setitem__(self, key, value):
         """Allow item assignment via indexing."""
         if not isinstance(value, Song):
             raise TypeError("Can only assign Song objects")
-        self._songs[key] = value
+        self.songs[key] = value
 
     def __delitem__(self, key):
         """Allow item deletion via indexing."""
-        del self._songs[key]
+        del self.songs[key]
 
     def __eq__(self, other):
         """
@@ -187,23 +187,23 @@ class Playlist:
 
     def remove(self, song):
         """Remove a song from the set if it exists."""
-        if song in self._songs:
-            self._songs.remove(song)
+        if song in self.songs:
+            self.songs.remove(song)
         else:
             raise KeyError("Song not found in set")
 
     def discard(self, song):
         """Remove a song from the set if it exists, no error if not found."""
-        if song in self._songs:
-            self._songs.remove(song)
+        if song in self.songs:
+            self.songs.remove(song)
 
     def clear(self):
         """Remove all songs from the set."""
-        self._songs.clear()
+        self.songs.clear()
 
     def copy(self):
         return Playlist(
             service_id=self.service_id.copy(),
-            songs=self._songs.copy(),
+            songs=self.songs.copy(),
             playlist_refs=self.playlist_refs.copy(),
         )
